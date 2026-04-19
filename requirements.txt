@@ -1,0 +1,5 @@
+streamlit>=1.20.0
+pandas>=1.4.0
+numpy>=1.21.0
+scikit-learn>=1.0.0
+fairlearn>=0.8.0
