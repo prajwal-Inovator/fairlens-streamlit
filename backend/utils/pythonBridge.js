@@ -8,7 +8,7 @@ const path = require('path');
 // ------------------------------------------------------------------
 // CONFIGURATION
 // ------------------------------------------------------------------
-const FLASK_URL = process.env.FLASK_URL || 'https://fairlens-frontend.onrender.com';
+const FLASK_URL = process.env.FLASK_URL || 'https://fairlens-614m.onrender.com';
 const API_PREFIX = '/api';
 
 /**
