@@ -7,6 +7,11 @@ from flask_cors import CORS
 import traceback
 
 # Import core modules
+import sys
+import os
+
+sys.path.append(os.path.dirname(__file__))
+
 from core.bias_detector import run_bias_analysis
 from core.explainer import explain_model
 from core.fair_model import mitigate_bias
