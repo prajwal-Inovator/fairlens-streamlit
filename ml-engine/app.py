@@ -82,7 +82,7 @@ def get_columns():
         file = request.files['file']
         path = save_uploaded_file(file)
 
-        df = pd.read_csv(path)
+        df = pd.read_csv(path).sample(n=2000, random_state=42)
         cols = df.columns.tolist()
 
         os.unlink(path)
@@ -119,7 +119,7 @@ def explain():
 
         path = save_uploaded_file(file)
 
-        df = pd.read_csv(path)
+        df = pd.read_csv(path).sample(n=2000, random_state=42)
         X, y, s = preprocess(df, target, sensitive)
 
         from sklearn.linear_model import LogisticRegression
@@ -167,7 +167,7 @@ def mitigate():
 def sample_columns(name):
     try:
         path = get_sample_path(name)
-        df = pd.read_csv(path)
+        df = pd.read_csv(path).sample(n=500, random_state=42)
         return jsonify({'columns': df.columns.tolist()})
     except Exception as e:
         traceback.print_exc()
@@ -196,7 +196,7 @@ def sample_explain(name):
         sensitive = request.args.get('sensitiveCol')
 
         path = get_sample_path(name)
-        df = pd.read_csv(path)
+        df = pd.read_csv(path).sample(n=2000, random_state=42)
 
         X, y, s = preprocess(df, target, sensitive)
 
