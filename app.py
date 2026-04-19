@@ -88,7 +88,7 @@ with st.sidebar:
     st.title("⚙️ Configuration")
     
     data_source = st.radio(
-        "Choose Data Source:", 
+        "1. Choose Data Source:", 
         ["Use Sample Datasets", "Upload Custom Dataset"],
         help="For testing, use our curated datasets or upload your own CSV."
     )
@@ -118,13 +118,18 @@ with st.sidebar:
             default_s = None
             st.success(f"Successfully uploaded {len(df)} rows.")
 
+    st.divider()
+    st.markdown("### 2. Advanced Mitigation Settings")
+    mitigation_method = st.selectbox("Reduction Method", ["ExponentiatedGradient", "GridSearch"])
+    mitigation_constraint = st.selectbox("Fairness Constraint", ["DemographicParity", "EqualizedOdds"])
+
 # --- MAIN APP LOGIC ---
 if df is not None:
     # Always sample max 2000 rows for speed as requested
     df = df.sample(n=min(len(df), 2000), random_state=42)
     
     # Configuration UI
-    st.markdown("### 1. Data Mapping")
+    st.markdown("### Data Mapping")
     colA, colB, colC = st.columns([1, 1, 1])
     
     with colA:
@@ -177,24 +182,44 @@ if df is not None:
                 m2.metric("Demographic Parity Diff", f"{result['demographic_parity_diff']:.3f}", delta="Lower is better", delta_color="inverse")
                 m3.metric("Equalized Odds Diff", f"{result['equalized_odds_diff']:.3f}", delta="Lower is better", delta_color="inverse")
                 
-                # Detailed Charts
-                st.markdown("#### Selection Rate by Group")
-                group_df = pd.DataFrame(result['by_group'])
+                st.divider()
+                st.markdown("### 📈 Group Disparities Visualization")
                 
-                fig = px.bar(
-                    group_df, x='group', y='selection_rate', color='group',
-                    title=f"Positive Outcome Rate Across '{sensitive_col}'",
-                    labels={'group': sensitive_col.capitalize(), 'selection_rate': 'Selection Rate'},
-                    text_auto='.1%'
-                )
-                fig.update_layout(showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
+                group_df = pd.DataFrame(result['by_group'])
+                if not group_df.empty:
+                    # Provide options for visualization
+                    vis_metric = st.radio("Select Metric to Visualize:", 
+                                         ["Positive Outcome Rate (Selection Rate)", 
+                                          "False Positive Rate", 
+                                          "False Negative Rate", 
+                                          "Accuracy"],
+                                         horizontal=True)
+                    
+                    metric_key_map = {
+                        "Positive Outcome Rate (Selection Rate)": "selection_rate",
+                        "False Positive Rate": "false_positive_rate",
+                        "False Negative Rate": "false_negative_rate",
+                        "Accuracy": "accuracy"
+                    }
+                    selected_col = metric_key_map[vis_metric]
+                    
+                    fig = px.bar(
+                        group_df, x='group', y=selected_col, color='group',
+                        title=f"{vis_metric} Across '{sensitive_col}'",
+                        labels={'group': sensitive_col.capitalize(), selected_col: vis_metric},
+                        text_auto='.1%',
+                        color_discrete_sequence=px.colors.qualitative.Pastel
+                    )
+                    fig.update_layout(showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Not enough group data to visualize disparities.")
             
             # -------------------------------------------------------------
             # TAB 2: EXPLAINABILITY (SHAP)
             # -------------------------------------------------------------
             with tab2:
-                with st.spinner("Generating deep AI explanations..."):
+                with st.spinner("Generating deep AI explanations via SHAP..."):
                     df_explain = df.sample(n=min(len(df), 500), random_state=42)
                     X, y, s = preprocess(df_explain, target_col, sensitive_col)
                     
@@ -205,16 +230,16 @@ if df is not None:
                          X, y, s, test_size=0.3, random_state=42
                     )
                     
+                    # Explainability model
                     model = LogisticRegression(max_iter=1000)
                     model.fit(X_train, y_train)
                     
                     explain_result = explain_model(model, X_train, X_test, X.columns.tolist(), s_test)
                 
-                st.markdown("### 🧠 AI Feature Importance (SHAP)")
+                st.markdown("### 🧠 AI Feature Importance")
                 if 'explanation' in explain_result and 'top_features' in explain_result:
                     st.info(f"**Insight:** {explain_result['explanation']}")
                     
-                    # Ensure we have valid feature list
                     top_features = explain_result.get('top_features', [])
                     if top_features and top_features[0]['feature'] != 'error':
                         imp_df = pd.DataFrame(top_features)
@@ -228,6 +253,10 @@ if df is not None:
                         )
                         fig_shap.update_layout(yaxis={'categoryorder':'total ascending'})
                         st.plotly_chart(fig_shap, use_container_width=True)
+                        
+                        # Add a secondary detailed table if needed
+                        with st.expander("Show detailed importance table"):
+                             st.dataframe(imp_df.style.format({'importance': '{:.4f}'}))
                     else:
                         st.warning("Could not generate SHAP explanations for this particular configuration.")
             
@@ -235,32 +264,61 @@ if df is not None:
             # TAB 3: MITIGATION
             # -------------------------------------------------------------
             with tab3:
-                with st.spinner("Running Fairlearn mitigation algorithms..."):
-                     mitigation_result = mitigate_bias(tmp_path, target_col, sensitive_col)
+                with st.spinner(f"Running {mitigation_method} with {mitigation_constraint}... (This might take a few seconds)"):
+                     mitigation_result = mitigate_bias(
+                         tmp_path, target_col, sensitive_col, 
+                         method=mitigation_method, 
+                         constraint=mitigation_constraint
+                     )
                      
                 st.markdown("### 🛡️ Automated Fairness Mitigation")
-                st.write(f"**Strategy Applied:** `{mitigation_result['method_used']}` with `{mitigation_result['constraint_used']}` constraint.")
+                st.write(f"**Strategy Applied:** `{mitigation_result['method_used']}` using constraint `{mitigation_result['constraint_used']}`.")
                 st.success(f"**Result:** {mitigation_result['summary']}")
                 
+                st.markdown("#### Performance Comparison")
                 # Visual Comparison
                 col_bef, col_aft = st.columns(2)
                 
                 with col_bef:
-                    st.markdown("#### 🚫 Original Model")
+                    st.markdown("##### 🚫 Original Sub-Optimal Model")
                     st.metric("Accuracy", f"{mitigation_result['original_accuracy']*100:.1f}%")
                     st.metric("Demographic Parity Diff", f"{mitigation_result['original_dp_diff']:.3f}")
                     st.metric("Equalized Odds Diff", f"{mitigation_result['original_eo_diff']:.3f}")
                     
                 with col_aft:
-                    st.markdown("#### ✅ Fair Model")
+                    st.markdown("##### ✅ Mitigated Fair Model")
                     acc_delta = mitigation_result['fair_accuracy'] - mitigation_result['original_accuracy']
                     dp_delta = mitigation_result['fair_dp_diff'] - mitigation_result['original_dp_diff']
+                    eo_delta = mitigation_result['fair_eo_diff'] - mitigation_result['original_eo_diff']
                     
                     st.metric("Accuracy", f"{mitigation_result['fair_accuracy']*100:.1f}%", f"{acc_delta*100:.1f}%")
                     st.metric("Demographic Parity Diff", f"{mitigation_result['fair_dp_diff']:.3f}", f"{dp_delta:.3f}", delta_color="inverse")
+                    st.metric("Equalized Odds Diff", f"{mitigation_result['fair_eo_diff']:.3f}", f"{eo_delta:.3f}", delta_color="inverse")
                     
-                    st.info(f"🎉 Demographic Parity improved by **{mitigation_result['improvement_dp']:.1f}%**")
-                    st.info(f"🎉 Equalized Odds improved by **{mitigation_result['improvement_eo']:.1f}%**")
+                st.markdown("#### What changed?")
+                st.info(f"✨ Demographic Parity improved by **{mitigation_result['improvement_dp']:.1f}%**")
+                st.info(f"✨ Equalized Odds improved by **{mitigation_result['improvement_eo']:.1f}%**")
+                
+                # Plot differences in groups before vs after
+                orig_groups = pd.DataFrame(mitigation_result['original_by_group'])
+                fair_groups = pd.DataFrame(mitigation_result['fair_by_group'])
+                
+                if not orig_groups.empty and not fair_groups.empty:
+                    st.markdown("##### Before / After Selection Rates")
+                    
+                    # Merge data for visualization
+                    orig_groups['Model'] = 'Original'
+                    fair_groups['Model'] = 'Fair'
+                    combined = pd.concat([orig_groups, fair_groups])
+                    
+                    fig_comp = px.bar(
+                        combined, x='group', y='selection_rate', color='Model',
+                        barmode='group',
+                        title="Positive Outcome Rate Before vs After Mitigation",
+                        labels={'selection_rate': 'Positive Outcome Rate', 'group': sensitive_col.capitalize()},
+                        color_discrete_map={'Original': '#ef4444', 'Fair': '#10b981'}
+                    )
+                    st.plotly_chart(fig_comp, use_container_width=True)
         
         except Exception as e:
             st.error(f"An error occurred during analysis: {str(e)}")

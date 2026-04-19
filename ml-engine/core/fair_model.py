@@ -97,8 +97,7 @@ def _train_fair_model(
             estimator=estimator,
             constraints=constraint_obj,
             eps=0.01,           # Small epsilon for tight constraint
-            max_iter=50,
-            random_state=42
+            max_iter=50
         )
     elif method == 'GridSearch':
         from fairlearn.reductions import GridSearch
