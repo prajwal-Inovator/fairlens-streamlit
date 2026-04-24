@@ -17,3 +17,11 @@ __pycache__/
 # Build
 dist/
 build/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.cache/
+*.log
