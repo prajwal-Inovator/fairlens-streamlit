@@ -27,55 +27,106 @@ st.set_page_config(
 # --- CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* Styling for a Hackathon-Ready Look */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Glassmorphism Header */
     .main-header {
-        font-size: 3.5rem;
-        font-weight: 900;
+        font-size: 3.8rem;
+        font-weight: 800;
         margin-bottom: 0px;
-        background: -webkit-linear-gradient(45deg, #3b82f6, #ec4899);
+        background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-align: center;
-        padding-top: 1rem;
+        padding-top: 1.5rem;
+        letter-spacing: -1.5px;
+        animation: fadeInDown 0.8s ease-out;
     }
+
     .sub-header {
-        font-size: 1.2rem;
-        color: #9ca3af;
-        margin-bottom: 2rem;
-        font-weight: 500;
+        font-size: 1.25rem;
+        color: #a1a1aa;
+        margin-bottom: 2.5rem;
+        font-weight: 400;
         text-align: center;
+        animation: fadeInUp 0.8s ease-out;
     }
+
+    /* Glassmorphism Metric Cards */
     .metric-card {
-        background-color: #1e1e2f;
-        border: 1px solid #2d2d3f;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        margin-bottom: 1rem;
+        background: rgba(30, 30, 46, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        margin-bottom: 1.5rem;
         text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        animation: fadeIn 1s ease-in-out;
     }
+
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px 0 rgba(0, 198, 255, 0.2);
+        border: 1px solid rgba(0, 198, 255, 0.3);
+    }
+
     .metric-value {
-        font-size: 2.5rem;
+        font-size: 2.8rem;
         font-weight: 800;
-        margin: 10px 0;
+        margin: 15px 0;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
+
     .metric-label {
-        font-size: 1rem;
-        color: #9ca3af;
+        font-size: 0.95rem;
+        color: #94a3b8;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.1em;
         font-weight: 600;
     }
+
     .success-text { color: #10b981; }
     .warning-text { color: #f59e0b; }
-    .danger-text { color: #ef4444; }
-    
+    .danger-text { color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.3); }
+
+    /* Animations */
+    @keyframes fadeInDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* Custom st.info and st.success */
+    div[data-testid="stAlert"] {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
     /* Light mode fallback for metrics */
     @media (prefers-color-scheme: light) {
         .metric-card {
             background-color: #ffffff;
             border: 1px solid #e5e7eb;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+        }
+        .main-header {
+            background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
+            -webkit-background-clip: text;
         }
     }
 </style>
@@ -324,19 +375,31 @@ def main():
                     group_df = pd.DataFrame(result['by_group'])
                     if not group_df.empty:
                         # Find disadvantaged group (lowest selection rate)
-                        lowest_group = group_df.loc[group_df['selection_rate'].idxmin(), 'group']
+                        lowest_group_idx = group_df['selection_rate'].idxmin()
+                        lowest_group = group_df.loc[lowest_group_idx, 'group']
+                        
+                        # Fix chart coloring: Convert groups to string to ensure Plotly maps them correctly
+                        group_df['group_str'] = group_df['group'].astype(str)
+                        lowest_group_str = str(lowest_group)
                         
                         # Create custom color map to highlight disadvantaged group in red
-                        color_map = {g: '#ef4444' if g == lowest_group else '#3b82f6' for g in group_df['group']}
+                        color_map = {g: '#ff4b4b' if g == lowest_group_str else '#00c6ff' for g in group_df['group_str']}
                         
                         fig = px.bar(
-                            group_df, x='group', y='selection_rate', color='group',
+                            group_df, x='group_str', y='selection_rate', color='group_str',
                             title=f"Positive Outcome Rate Across '{sensitive_col}'",
-                            labels={'group': sensitive_col.capitalize(), 'selection_rate': 'Positive Outcome Rate'},
+                            labels={'group_str': sensitive_col.capitalize(), 'selection_rate': 'Positive Outcome Rate'},
                             text_auto='.1%',
                             color_discrete_map=color_map
                         )
-                        fig.update_layout(showlegend=False)
+                        fig.update_traces(marker_line_width=0, opacity=0.9, textfont=dict(color='white'))
+                        fig.update_layout(
+                            showlegend=False, 
+                            plot_bgcolor='rgba(0,0,0,0)', 
+                            paper_bgcolor='rgba(0,0,0,0)',
+                            font=dict(family="Inter", size=14),
+                            margin=dict(l=20, r=20, t=60, b=20)
+                        )
                         st.plotly_chart(fig, use_container_width=True)
                         st.caption(f"Note: The **{lowest_group}** group is highlighted in red as it has the lowest positive outcome rate, indicating a potential disadvantage.")
                     else:
