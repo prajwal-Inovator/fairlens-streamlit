@@ -285,22 +285,6 @@ git push origin feature/YourFeature
 
 ---
 
-# 📸 Screenshots
-
-> Add screenshots of your Streamlit dashboard here.
-
-Example:
-
-```
-screenshots/
-├── home.png
-├── fairness-report.png
-├── mitigation.png
-└── dashboard.png
-```
-
----
-
 # 📄 License
 
 This project is licensed under the MIT License.
